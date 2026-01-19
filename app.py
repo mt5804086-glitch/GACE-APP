@@ -5,53 +5,64 @@ from datetime import datetime
 import google.generativeai as genai
 from streamlit_gsheets import GSheetsConnection
 
-# --- 1. CONFIGURACIÓN PROFESIONAL ---
+# --- 1. CONFIGURACIÓN (Estética OpositaTest) ---
 st.set_page_config(page_title="GACE Academy Pro", page_icon="⚖️", layout="wide")
 
 st.markdown("""
     <style>
     .stApp { background-color: #f8fafc; }
     .question-card { 
-        background-color: #ffffff; padding: 25px; border-radius: 15px; 
+        background-color: #ffffff; padding: 30px; border-radius: 15px; 
         border-left: 10px solid #1e40af; box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
-        margin-bottom: 20px; 
+        margin-bottom: 25px; 
     }
     .profile-banner { 
         background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%); 
-        color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; 
+        color: white; padding: 20px; border-radius: 12px; margin-bottom: 30px; 
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONEXIÓN Y DIAGNÓSTICO ---
+# --- 2. CONEXIÓN A LA IA (Solución al error 404) ---
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    
-    # Intentamos con el modelo más compatible (gemini-pro) para asegurar que funcione
-    # Si este falla, el error nos dará una lista clara de qué modelos usar
-    model = genai.GenerativeModel('gemini-pro') 
+    # Probamos con el nombre técnico completo que acepta la API v1beta
+    model = genai.GenerativeModel('models/gemini-1.5-flash')
     conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
-    st.error(f"Error de infraestructura: {e}")
+    st.error(f"Error de conexión inicial: {e}")
 
-# --- 3. ESTADO DE LA APP ---
+# --- 3. GESTIÓN DE SESIÓN ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 if 'quiz_step' not in st.session_state: st.session_state.quiz_step = 'menu'
 
-# --- 4. FUNCIONES (MBA & RRHH) ---
+# --- 4. FUNCIONES DE VALOR JURÍDICO ---
 def consultar_ia(pregunta, correcta):
-    prompt = f"Como preparador GACE para un Graduado en RRHH, explica la base jurídica de: {pregunta}. Correcta: {correcta}. ES OBLIGATORIO CITAR ARTÍCULO Y LEY."
+    # Prompt diseñado para tu perfil de Relaciones Laborales y MBA
+    prompt = f"""
+    Actúa como preparador experto para el Cuerpo de Gestión Administrativa (GACE). 
+    El alumno tiene formación en RRHH y MBA. 
+    Pregunta: {pregunta}
+    Respuesta correcta: {correcta}
+    
+    INSTRUCCIÓN: Explica la base jurídica de la respuesta. 
+    ES OBLIGATORIO CITAR EL ARTÍCULO Y LA LEY (ej. TREBEP, Ley 39/2015, Ley 40/2015).
+    """
     try:
-        # Intentamos generar contenido con el modelo estándar
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        return f"Error al obtener base jurídica: {e}. Por favor, verifica tu API Key en Google AI Studio."
+        # Si falla el 1.5-flash, intentamos con el pro como plan B
+        try:
+            model_b = genai.GenerativeModel('models/gemini-pro')
+            return model_b.generate_content(prompt).text
+        except:
+            return f"Error de acceso a la normativa. Por favor, verifica tu cuota en Google AI Studio. Detalles: {e}"
 
-def log_gsheets(tema, pregunta, resultado):
+def registrar_progreso(tema, pregunta, seleccion, correcta, resultado):
     nueva_fila = pd.DataFrame([{
         "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "perfil": "MBA_RRHH",
+        "perfil": "RRHH_MBA",
         "tema": tema,
         "pregunta": pregunta[:80],
         "resultado": resultado
@@ -75,13 +86,13 @@ if not st.session_state.logged_in:
 
 # --- 6. INTERFAZ: DASHBOARD ---
 if st.session_state.quiz_step == 'menu':
-    st.markdown('<div class="profile-banner">👨‍🎓 <b>Opositor:</b> RRHH & MBA | <b>PL2 Euskera</b> | 📊 <b>Trazabilidad Activa</b></div>', unsafe_allow_html=True)
-    st.title("📚 Módulos de Entrenamiento")
+    st.markdown('<div class="profile-banner">🎓 <b>Experto:</b> RRHH & MBA | <b>PL2 Euskera</b> | 📊 <b>Trazabilidad GSheets Activa</b></div>', unsafe_allow_html=True)
+    st.title("📚 Módulos de Entrenamiento GACE")
     
     archivos = [f for f in os.listdir('.') if f.endswith(('.xlsx', '.csv'))]
     if archivos:
-        tema_sel = st.selectbox("Selecciona tu material:", archivos)
-        n_preg = st.select_slider("Preguntas:", options=[5, 10, 15, 20], value=10)
+        tema_sel = st.selectbox("Selecciona tu material de estudio:", archivos)
+        n_preg = st.select_slider("Número de preguntas:", options=[5, 10, 15, 20], value=10)
         
         if st.button("🚀 INICIAR ENTRENAMIENTO"):
             df = pd.read_excel(tema_sel, engine='openpyxl') if tema_sel.endswith('.xlsx') else pd.read_csv(tema_sel)
@@ -116,15 +127,15 @@ elif st.session_state.quiz_step == 'playing':
         acierto = (st.session_state.user_choice == correcta)
         
         if acierto:
-            st.success(f"🎯 **¡CORRECTO!** Respuesta: {correcta.upper()}")
-            log_gsheets(st.session_state.tema_n, row['Pregunta'], "Acierto")
+            st.success(f"🎯 **¡CORRECTO!** La respuesta es la {correcta.upper()}")
+            log_progreso(st.session_state.tema_n, row['Pregunta'], st.session_state.user_choice, correcta, "Acierto")
         else:
-            st.error(f"❌ **FALLO.** Marcaste {st.session_state.user_choice.upper()} | Correcta: {correcta.upper()}")
-            log_gsheets(st.session_state.tema_n, row['Pregunta'], "Fallo")
+            st.error(f"❌ **FALLO.** Tu marcaste {st.session_state.user_choice.upper()} | Correcta: {correcta.upper()}")
+            log_progreso(st.session_state.tema_n, row['Pregunta'], st.session_state.user_choice, correcta, "Fallo")
 
         st.divider()
-        if st.button("✨ VER BASE JURÍDICA (IA)", type="primary"):
-            with st.spinner("Analizando normativa..."):
+        if st.button("✨ CONSULTAR BASE JURÍDICA (GEMINI AI)", type="primary"):
+            with st.spinner("Conectando con la normativa vigente..."):
                 st.info(consultar_ia(row['Pregunta'], correcta))
 
         if st.button("Siguiente Pregunta ➡️"):
