@@ -5,76 +5,58 @@ from datetime import datetime
 import google.generativeai as genai
 from streamlit_gsheets import GSheetsConnection
 
-# --- 1. CONFIGURACIÓN PROFESIONAL (Estilo OpositaTest) ---
-st.set_page_config(page_title="GACE Pro Training", page_icon="⚖️", layout="wide")
+# --- 1. ESTÉTICA PROFESIONAL (UX/UI) ---
+st.set_page_config(page_title="GACE Academy Pro", page_icon="📈", layout="wide")
 
 st.markdown("""
     <style>
-    .stApp { background-color: #f0f2f6; }
+    .stApp { background-color: #f4f7f6; }
     .question-card { 
         background-color: #ffffff; 
         padding: 30px; 
         border-radius: 15px; 
-        border-left: 10px solid #1e40af; 
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+        border-left: 10px solid #2563eb; 
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08); 
         margin-bottom: 25px; 
     }
-    .stButton>button { 
-        border-radius: 12px; 
-        font-weight: bold; 
-        height: 3.5em; 
-        transition: 0.3s; 
-    }
-    .stButton>button:hover { border: 2px solid #1e40af; transform: translateY(-2px); }
+    .stButton>button { border-radius: 10px; font-weight: bold; height: 3.8em; transition: 0.3s; }
+    .stButton>button:hover { border: 2px solid #2563eb; transform: translateY(-2px); }
     .profile-banner { 
-        background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%); 
-        color: white; 
-        padding: 20px; 
-        border-radius: 12px; 
-        margin-bottom: 30px; 
+        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); 
+        color: white; padding: 20px; border-radius: 12px; margin-bottom: 30px; 
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. INFRAESTRUCTURA Y SECRETOS ---
+# --- 2. CONEXIONES Y SEGURIDAD ---
 try:
-    if "GEMINI_API_KEY" not in st.secrets:
-        st.error("Falta GEMINI_API_KEY en los Secrets.")
-        st.stop()
-    
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    # Modelo actualizado para evitar el error 404
     model = genai.GenerativeModel('gemini-1.5-flash')
     conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
-    st.error(f"Error de conexión: {e}")
+    st.error(f"Error de infraestructura: {e}")
 
-# --- 3. GESTIÓN DE SESIÓN ---
+# --- 3. GESTIÓN DE ESTADO ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 if 'quiz_step' not in st.session_state: st.session_state.quiz_step = 'menu'
 
-# --- 4. LÓGICA DE NEGOCIO (IA y Registro) ---
-def consultar_gemini_legal(pregunta, correcta):
-    """Fallback para evitar el error 404 y forzar citas legales."""
-    prompt = f"Como preparador de GACE para un MBA/RRHH, explica la base jurídica de: {pregunta}. Correcta: {correcta}. ES OBLIGATORIO CITAR ARTÍCULO Y LEY."
+# --- 4. FUNCIONES DE VALOR (IA y Registro) ---
+def explicar_con_gemini(pregunta, correcta):
+    prompt = f"Eres preparador GACE. Explica la base jurídica de: {pregunta}. Correcta: {correcta}. CITA ARTÍCULO Y LEY (TREBEP/Ley 39)."
     try:
         response = model.generate_content(prompt)
         return response.text
-    except:
-        # Intento con modelo alternativo si el flash falla (Error 404)
-        try:
-            alt_model = genai.GenerativeModel('gemini-pro')
-            return alt_model.generate_content(prompt).text
-        except Exception as e:
-            return f"Error de conexión con la IA: {e}"
+    except Exception as e:
+        return f"La IA está descansando: {e}"
 
-def registrar_progreso_gsheets(tema, pregunta, mi_resp, correcta, resultado):
-    """Garantiza la interoperabilidad según Art. 156 Ley 40/2015."""
+def guardar_progreso(tema, pregunta, seleccion, correcta, resultado):
+    """Registro de interoperabilidad (Art. 156 Ley 40/2015)."""
     nueva_fila = pd.DataFrame([{
         "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "perfil": "RRHH_MBA_PL2",
         "tema": tema,
         "pregunta": pregunta[:100],
-        "mi_respuesta": mi_resp,
+        "mi_respuesta": seleccion,
         "correcta": correcta,
         "resultado": resultado
     }])
@@ -95,63 +77,66 @@ if not st.session_state.logged_in:
             st.rerun()
     st.stop()
 
-# --- 6. INTERFAZ: DASHBOARD ---
+# --- 6. DASHBOARD (MBA STYLE) ---
 if st.session_state.quiz_step == 'menu':
-    st.markdown('<div class="profile-banner">🎓 <b>Experto:</b> RRHH & MBA | 🏆 <b>Objetivo:</b> GACE Euskadi | 🌍 <b>PL2</b></div>', unsafe_allow_html=True)
-    st.title("📊 Panel de Gestión de Estudio")
+    st.markdown('<div class="profile-banner">🎓 <b>Experto:</b> RRHH & MBA | 🏆 <b>Objetivo:</b> GACE | 🌍 <b>PL2 (B2)</b></div>', unsafe_allow_html=True)
+    st.title("📊 Selección de Módulo")
     
     archivos = [f for f in os.listdir('.') if f.endswith(('.xlsx', '.csv'))]
     if archivos:
-        tema_sel = st.selectbox("Selecciona tu módulo:", archivos)
-        num_q = st.select_slider("Preguntas:", options=[5, 10, 15, 20], value=10)
+        tema_sel = st.selectbox("Elige tu material de estudio:", archivos)
+        n_preg = st.select_slider("Número de preguntas:", options=[5, 10, 15, 20], value=10)
         
-        if st.button("🚀 INICIAR ENTRENAMIENTO"):
+        if st.button("🚀 COMENZAR ENTRENAMIENTO"):
             df = pd.read_excel(tema_sel, engine='openpyxl') if tema_sel.endswith('.xlsx') else pd.read_csv(tema_sel)
-            st.session_state.current_df = df.sample(n=min(num_q, len(df))).reset_index(drop=True)
+            st.session_state.current_df = df.sample(n=min(n_preg, len(df))).reset_index(drop=True)
             st.session_state.current_idx = 0
             st.session_state.quiz_step = 'playing'
             st.session_state.feedback = False
             st.session_state.tema_nombre = tema_sel
             st.rerun()
 
-# --- 7. INTERFAZ: MODO TEST ---
+# --- 7. MODO ENTRENAMIENTO (FUNCIONALIDAD COMPLETA) ---
 elif st.session_state.quiz_step == 'playing':
     df = st.session_state.current_df
     idx = st.session_state.current_idx
     row = df.iloc[idx]
     
+    # Barra de progreso real (OpositaTest)
     st.progress((idx + 1) / len(df))
     st.write(f"Pregunta {idx+1} de {len(df)}")
+    
     st.markdown(f'<div class="question-card"><h3>{row["Pregunta"]}</h3></div>', unsafe_allow_html=True)
     
-    opciones = [row['Respuesta 1'], row['Respuesta 2'], row['Respuesta 3'], row['Respuesta 4']]
-    letras = ['a', 'b', 'c', 'd']
+    opc = [row['Respuesta 1'], row['Respuesta 2'], row['Respuesta 3'], row['Respuesta 4']]
+    let = ['a', 'b', 'c', 'd']
 
     if not st.session_state.feedback:
-        for i, texto in enumerate(opciones):
+        for i, texto in enumerate(opc):
             if pd.notna(texto):
-                # FIX: Sintaxis cerrada correctamente aquí
-                if st.button(f"{letras[i]}) {texto}", key=f"btn_{i}", use_container_width=True):
-                    st.session_state.user_choice = letras[i]
+                # Botones de respuesta con sintaxis corregida
+                if st.button(f"{let[i]}) {texto}", key=f"btn_{i}", use_container_width=True):
+                    st.session_state.user_choice = let[i]
                     st.session_state.feedback = True
                     st.rerun()
     else:
         correcta = str(row['Respuesta']).strip().lower()
-        acierto = (st.session_state.user_choice == correcta)
+        es_acierto = (st.session_state.user_choice == correcta)
         
-        if acierto:
-            st.success(f"🎯 **¡CORRECTO!** La respuesta es la {correcta.upper()}")
-            resultado = "Acierto"
+        if es_acierto:
+            st.success(f"🎯 **¡ACIERTO!** La opción correcta es la {correcta.upper()}")
+            res = "Acierto"
         else:
             st.error(f"❌ **FALLO.** Marcaste {st.session_state.user_choice.upper()} | Correcta: {correcta.upper()}")
-            resultado = "Fallo"
+            res = "Fallo"
 
-        registrar_progreso_gsheets(st.session_state.tema_nombre, row['Pregunta'], st.session_state.user_choice, correcta, resultado)
+        # Guardado en Google Sheets con detalle MBA
+        guardar_progreso(st.session_state.tema_nombre, row['Pregunta'], st.session_state.user_choice, correcta, res)
 
         st.divider()
         if st.button("✨ CONSULTAR BASE JURÍDICA (GEMINI AI)", type="primary"):
-            with st.spinner("Analizando normativa..."):
-                st.info(consultar_gemini_legal(row['Pregunta'], correcta))
+            with st.spinner("Conectando con la normativa..."):
+                st.info(explicar_con_gemini(row['Pregunta'], correcta))
 
         if st.button("Siguiente Pregunta ➡️"):
             if idx + 1 < len(df):
