@@ -1,4 +1,5 @@
 streamlit
 pandas
+google-generativeai
+streamlit-gsheets
 openpyxl
-altair
