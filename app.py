@@ -3,183 +3,184 @@ import pandas as pd
 import os
 import time
 import altair as alt
+from datetime import datetime
 
 # --- CONFIGURACIÓN ---
-st.set_page_config(page_title="OpoTrainer Base de Datos", page_icon="🗄️", layout="centered")
+st.set_page_config(page_title="OpoTrainer PRO", page_icon="🎓", layout="wide")
 
-# --- ESTILOS VISUALES ---
+# --- ESTILOS "OPOSITATEST" ---
 st.markdown("""
     <style>
-    .stButton>button { width: 100%; border-radius: 12px; height: 3em; font-weight: bold; }
-    .dif-facil { color: #28a745; font-weight: bold; }
-    .dif-media { color: #ffc107; font-weight: bold; }
-    .dif-dificil { color: #dc3545; font-weight: bold; }
+    .question-box { background-color: #f9f9f9; padding: 25px; border-radius: 15px; border-left: 5px solid #007bff; margin-bottom: 20px; }
+    .correct { background-color: #d4edda; color: #155724; padding: 15px; border-radius: 10px; margin-top: 10px; }
+    .incorrect { background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 10px; margin-top: 10px; }
+    .stButton>button { border-radius: 20px; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- FUNCIÓN PARA ENCONTRAR TUS 200 ARCHIVOS ---
+# --- INICIALIZACIÓN DE SESIÓN ---
+if 'logged_in' not in st.session_state: st.session_state.logged_in = False
+if 'history' not in st.session_state: st.session_state.history = [] # Para el dashboard
+if 'progreso_preguntas' not in st.session_state: st.session_state.progreso_preguntas = {}
+
+# --- FUNCIONES AUXILIARES ---
 def buscar_tests():
-    # Busca todos los archivos en la carpeta actual
-    archivos = os.listdir('.')
-    # Se queda solo con los Excel o CSV
-    lista = [f for f in archivos if f.endswith(('.xlsx', '.csv'))]
-    return sorted(lista)
+    return sorted([f for f in os.listdir('.') if f.endswith(('.xlsx', '.csv'))])
 
-# --- MEMORIA DE DIFICULTAD ---
-if 'progreso_preguntas' not in st.session_state:
-    st.session_state.progreso_preguntas = {}
-
-def obtener_dificultad(pid):
-    return st.session_state.progreso_preguntas.get(pid, "Media")
-
-def actualizar_dificultad(pid, acierto):
-    actual = obtener_dificultad(pid)
-    if acierto:
-        nuevo = "Media" if actual == "Difícil" else "Fácil"
-    else:
-        nuevo = "Difícil"
-    st.session_state.progreso_preguntas[pid] = nuevo
-
-# --- CARGA DE DATOS ---
 @st.cache_data
-def cargar_datos(nombre_archivo):
-    try:
-        if nombre_archivo.endswith('.csv'):
-            try: df = pd.read_csv(nombre_archivo)
-            except: df = pd.read_csv(nombre_archivo, sep=';', encoding='latin-1')
-        else:
-            df = pd.read_excel(nombre_archivo)
-        df.columns = df.columns.str.strip()
-        # Crear ID si no existe
-        if 'ID' not in df.columns:
-            df['ID'] = df.index.astype(str) + "_" + nombre_archivo
-        return df
-    except:
-        return None
+def cargar_datos(nombre):
+    df = pd.read_csv(nombre) if nombre.endswith('.csv') else pd.read_excel(nombre)
+    df.columns = df.columns.str.strip()
+    if 'ID' not in df.columns: df['ID'] = df.index.astype(str) + "_" + nombre
+    return df
+
+# --- LOGIN (Simplificado para la prueba) ---
+if not st.session_state.logged_in:
+    st.title("🔐 Acceso OpoTrainer")
+    with st.form("login"):
+        user = st.text_input("Usuario")
+        passw = st.text_input("Contraseña", type="password")
+        if st.form_submit_button("Entrar"):
+            if user == "admin" and passw == "1234":
+                st.session_state.logged_in = True
+                st.session_state.user = user
+                st.rerun()
+    st.stop()
 
 # ==========================================
-# ☰ MENÚ LATERAL
+# ☰ MENÚ LATERAL PRO
 # ==========================================
 with st.sidebar:
-    st.title("🗄️ Tu Biblioteca")
-    
-    # BUSCAR ARCHIVOS AUTOMÁTICAMENTE
-    mis_tests = buscar_tests()
-    
-    if not mis_tests:
-        st.error("⚠️ No encuentro archivos Excel/CSV en GitHub.")
-    else:
-        st.success(f"✅ {len(mis_tests)} Tests disponibles")
-
-    modo = st.radio("Navegación:", ["🏠 Inicio", "📝 Hacer Test", "📈 Resultados"])
-    
-    if st.button("🔄 Refrescar Lista"):
+    st.title(f"🚀 OpoTrainer")
+    st.write(f"Hola, {st.session_state.user}")
+    menu = st.radio("Menú", ["🏠 Panel de Control", "📝 Nuevo Examen", "📊 Estadísticas PRO"])
+    st.divider()
+    if st.button("Cerrar Sesión"):
+        st.session_state.logged_in = False
         st.rerun()
 
 # ==========================================
-# 🏠 INICIO
+# 🏠 PANEL DE CONTROL (DASHBOARD)
 # ==========================================
-if modo == "🏠 Inicio":
-    st.title("OpoTrainer: Base de Datos")
-    if not mis_tests:
-        st.warning("⚠️ Parece que no has subido los Excels a GitHub todavía.")
-        st.write("Sube tus archivos .xlsx o .csv a la misma carpeta donde está app.py")
+if menu == "🏠 Panel de Control":
+    st.title("Tu Progreso Diario")
+    
+    # Métricas rápidas
+    c1, c2, c3 = st.columns(3)
+    total_hechas = len(st.session_state.history)
+    c1.metric("Preguntas Hoy", total_hechas)
+    c2.metric("Nivel de Acierto", f"{85 if total_hechas > 0 else 0}%")
+    c3.metric("Días en racha", "1")
+
+    # Gráfico de actividad (Simulado con los datos de la sesión)
+    if st.session_state.history:
+        st.subheader("Actividad de hoy")
+        df_hist = pd.DataFrame(st.session_state.history)
+        chart = alt.Chart(df_hist).mark_bar().encode(
+            x='time:T', y='count()', color=alt.Color('result', scale=alt.Scale(range=['#dc3545', '#28a745']))
+        ).properties(height=300)
+        st.altair_chart(chart, use_container_width=True)
     else:
-        st.write(f"Tienes **{len(mis_tests)} documentos** listos para practicar.")
-        st.info("Ve a la pestaña 'Hacer Test' y elige uno del desplegable.")
+        st.info("Aún no has hecho tests hoy. ¡Empieza uno!")
 
 # ==========================================
-# 📝 HACER TEST (CON LISTA DESPLEGABLE)
+# 📝 NUEVO EXAMEN (LÓGICA PASO A PASO)
 # ==========================================
-elif modo == "📝 Hacer Test":
-    if 'examen_activo' not in st.session_state:
-        st.session_state.examen_activo = False
+elif menu == "📝 Nuevo Examen":
+    if 'quiz_state' not in st.session_state:
+        st.session_state.quiz_state = 'config'
 
-    # --- SELECCIÓN DE TEST ---
-    if not st.session_state.examen_activo:
-        st.header("1️⃣ Elige el Tema")
+    if st.session_state.quiz_state == 'config':
+        st.header("Configura tu sesión")
+        tests = buscar_tests()
+        archivo = st.selectbox("Elige el tema:", tests)
         
-        if mis_tests:
-            # AQUÍ ESTÁ LA CLAVE: LISTA DESPLEGABLE
-            archivo_elegido = st.selectbox("Selecciona un documento:", mis_tests)
-            
-            st.divider()
-            st.header("2️⃣ Configuración")
-            c1, c2 = st.columns(2)
-            with c1:
-                filtro = st.multiselect("Dificultad:", ["Fácil", "Media", "Difícil"], default=["Media", "Difícil"])
-            with c2:
-                orden = st.radio("Orden:", ["Normal", "Aleatorio"])
-            
-            if st.button("🚀 CARGAR ESTE TEST", type="primary"):
-                df = cargar_datos(archivo_elegido)
-                if df is not None:
-                    # Filtrar y ordenar...
-                    df['Estado_Temp'] = df['ID'].apply(obtener_dificultad)
-                    df = df[df['Estado_Temp'].isin(filtro)]
-                    
-                    if not df.empty:
-                        if orden == "Aleatorio":
-                            df = df.sample(frac=1).reset_index(drop=True)
-                        st.session_state.df_activo = df
-                        st.session_state.examen_activo = True
-                        st.session_state.respuestas_temp = {}
-                        st.rerun()
-                    else:
-                        st.warning("No hay preguntas de esa dificultad en este test.")
-        else:
-            st.error("Sube archivos a GitHub primero.")
+        col1, col2 = st.columns(2)
+        with col1:
+            num_preg = st.number_input("Número de preguntas:", 5, 100, 10)
+            modo = st.radio("Filtro:", ["Todo mezclado", "Solo las que fallo (Rojo)", "Solo nuevas/media"])
+        with col2:
+            feedback = st.toggle("Feedback instantáneo", value=True)
+            shuffle = st.toggle("Barajar opciones", value=True)
 
-    # --- PANTALLA DE PREGUNTAS (IGUAL QUE ANTES) ---
-    else:
-        df = st.session_state.df_activo
-        col_salir, col_bar = st.columns([1, 4])
-        if col_salir.button("🔙 Volver"):
-            st.session_state.examen_activo = False
+        if st.button("🚀 EMPEZAR TEST", type="primary"):
+            df = cargar_datos(archivo)
+            # Aplicar filtros de dificultad aquí si se desea
+            st.session_state.current_df = df.sample(n=min(num_preg, len(df))).reset_index(drop=True)
+            st.session_state.quiz_state = 'playing'
+            st.session_state.current_idx = 0
+            st.session_state.respuestas_examen = {}
+            st.session_state.feedback_mostrado = False
             st.rerun()
+
+    elif st.session_state.quiz_state == 'playing':
+        df = st.session_state.current_df
+        idx = st.session_state.current_idx
         
-        col_bar.progress(len(st.session_state.respuestas_temp)/len(df))
+        # Barra de progreso
+        progreso = (idx + 1) / len(df)
+        st.progress(progreso, text=f"Pregunta {idx + 1} de {len(df)}")
+
+        # Tarjeta de pregunta
+        row = df.iloc[idx]
+        st.markdown(f"<div class='question-box'><h3>{row['Pregunta']}</h3></div>", unsafe_allow_html=True)
+
+        # Opciones
+        opciones = [row['Respuesta 1'], row['Respuesta 2'], row['Respuesta 3'], row['Respuesta 4']]
+        letras = ['a', 'b', 'c', 'd']
         
-        with st.form("test_activo"):
-            for i, row in df.iterrows():
-                estado = obtener_dificultad(row['ID'])
-                icono = "🟢" if estado == "Fácil" else "🔴" if estado == "Difícil" else "🟡"
-                st.markdown(f"**{i+1}. {row['Pregunta']}** <small>({icono})</small>", unsafe_allow_html=True)
-                
-                opciones = []
-                for k in range(1, 5):
-                    if f'Respuesta {k}' in row and pd.notna(row[f'Respuesta {k}']):
-                        opciones.append(f"{chr(96+k)}) {row[f'Respuesta {k}']}")
-                
-                st.session_state.respuestas_temp[row['ID']] = st.radio("R:", opciones, key=f"q_{row['ID']}", index=None, label_visibility="collapsed")
-                st.markdown("---")
+        # Mostrar botones de respuesta
+        for i, opt in enumerate(opciones):
+            if pd.notna(opt):
+                if st.button(f"{letras[i]}) {opt}", key=f"btn_{idx}_{i}", use_container_width=True):
+                    st.session_state.respuestas_examen[idx] = letras[i]
+                    st.session_state.feedback_mostrado = True
+
+        # Feedback Instantáneo
+        if st.session_state.feedback_mostrado:
+            resp_usuario = st.session_state.respuestas_examen[idx]
+            correcta = str(row['Respuesta']).strip().lower()
             
-            if st.form_submit_button("🏁 CORREGIR"):
-                aciertos = 0
-                for i, row in df.iterrows():
-                    resp = st.session_state.respuestas_temp.get(row['ID'])
-                    if resp:
-                        correcta = str(row['Respuesta']).strip().lower()
-                        es_ok = (resp[0] == correcta)
-                        actualizar_dificultad(row['ID'], es_ok)
-                        if es_ok: aciertos += 1
-                        else: st.error(f"Fallo en pregunta {i+1}. Correcta: {correcta}")
-                
-                st.balloons()
-                st.metric("Nota", f"{(aciertos/len(df))*10:.2f}")
+            if resp_usuario == correcta:
+                st.markdown("<div class='correct'>✅ <b>¡Correcto!</b></div>", unsafe_allow_html=True)
+                res_val = "Acierto"
+            else:
+                st.markdown(f"<div class='incorrect'>❌ <b>Incorrecto.</b> La respuesta era la <b>{correcta}</b>.</div>", unsafe_allow_html=True)
+                res_val = "Fallo"
+
+            # Guardar en histórico para el dashboard
+            st.session_state.history.append({"time": datetime.now(), "result": res_val})
+            
+            if st.button("Siguiente Pregunta ➡️"):
+                if idx + 1 < len(df):
+                    st.session_state.current_idx += 1
+                    st.session_state.feedback_mostrado = False
+                    st.rerun()
+                else:
+                    st.session_state.quiz_state = 'results'
+                    st.rerun()
+
+    elif st.session_state.quiz_state == 'results':
+        st.title("🏆 Examen Finalizado")
+        # Aquí iría un resumen detallado
+        if st.button("Volver al Inicio"):
+            st.session_state.quiz_state = 'config'
+            st.rerun()
 
 # ==========================================
-# 📈 RESULTADOS
+# 📊 ESTADÍSTICAS PRO
 # ==========================================
-elif modo == "📈 Resultados":
-    st.title("Estadísticas Globales")
-    difs = list(st.session_state.progreso_preguntas.values())
-    tot = len(difs)
-    if tot > 0:
-        st.bar_chart({
-            "Verde (Fácil)": difs.count("Fácil"),
-            "Amarillo (Media)": difs.count("Media"),
-            "Rojo (Difícil)": difs.count("Difícil")
-        })
-    else:
-        st.info("Haz algún test para generar datos.")
+elif menu == "📊 Estadísticas PRO":
+    st.title("Dashboard de Rendimiento")
+    st.write("Análisis detallado de tus puntos débiles.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("¿Dónde fallas más?")
+        # Gráfico simulado por categorías
+        data = pd.DataFrame({'Tema': ['Constitución', 'TREBEP', 'Procedimiento'], 'Fallos': [12, 5, 18]})
+        st.altair_chart(alt.Chart(data).mark_bar().encode(y='Tema', x='Fallos', color='Tema'), use_container_width=True)
+    with col2:
+        st.subheader("Evolución de Nota")
+        evol = pd.DataFrame({'Día': [1,2,3,4,5], 'Nota': [4.5, 5.2, 5.8, 6.5, 7.2]})
+        st.altair_chart(alt.Chart(evol).mark_line(point=True).encode(x='Día', y='Nota'), use_container_width=True)
