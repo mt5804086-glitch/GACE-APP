@@ -5,66 +5,73 @@ from datetime import datetime
 import google.generativeai as genai
 from streamlit_gsheets import GSheetsConnection
 
-# --- CONFIGURACIÓN DE ALTO NIVEL (Perfil MBA & RRHH) ---
-st.set_page_config(page_title="OpoTrainer GACE - Sistema Inteligente", page_icon="⚖️", layout="wide")
+# --- CONFIGURACIÓN TÉCNICA (MBA & Eficacia Art. 3 Ley 40/2015) ---
+st.set_page_config(page_title="GACE Academy Pro", page_icon="📈", layout="wide")
 
-# Diseño visual avanzado (CSS personalizado)
+# Diseño visual estilo OpositaTest
 st.markdown("""
     <style>
-    .stApp { background-color: #f8fafc; }
-    .question-card { background-color: #ffffff; padding: 25px; border-radius: 15px; border-left: 8px solid #1e40af; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    .stButton>button { border-radius: 10px; height: 3.5em; font-weight: bold; transition: 0.3s; }
-    .stButton>button:hover { background-color: #1e40af; color: white; transform: translateY(-2px); }
-    .status-bar { padding: 10px; border-radius: 8px; background-color: #e2e8f0; margin-bottom: 20px; font-weight: bold; }
+    .stApp { background-color: #f1f5f9; }
+    .question-card { background-color: #ffffff; padding: 2rem; border-radius: 12px; border-left: 10px solid #1d4ed8; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); margin-bottom: 25px; }
+    .stButton>button { border-radius: 8px; font-weight: bold; transition: 0.2s; height: 3em; }
+    .stProgress > div > div > div > div { background-color: #1d4ed8; }
+    .profile-banner { background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 15px; border-radius: 10px; margin-bottom: 25px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- INFRAESTRUCTURA (Secrets y Conexiones) ---
+# --- INFRAESTRUCTURA ---
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    # SELECCIÓN DE MODELO ESTABLE (Para evitar el error 404)
+    # Probamos el modelo flash, si da 404 el sistema lo gestionará en la función de consulta
     model = genai.GenerativeModel('gemini-1.5-flash')
     conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
-    st.error(f"Error en el despliegue de infraestructura: {e}")
+    st.error(f"Error de infraestructura: {e}")
 
 # --- GESTIÓN DE SESIÓN ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 if 'quiz_step' not in st.session_state: st.session_state.quiz_step = 'menu'
 
-# --- LÓGICA DE NEGOCIO ---
-def obtener_base_juridica(pregunta, opciones, correcta):
-    """Genera la explicación legal obligatoria citando Artículo y Ley."""
+# --- LÓGICA DE INTELIGENCIA JURÍDICA ---
+def consultar_base_legal(pregunta, correcta):
+    """Consulta a Gemini con fallback para evitar error 404."""
     prompt = f"""
-    Eres preparador de oposiciones para un Graduado en RRHH y MBA.
+    Eres preparador de oposiciones GACE para un Graduado en RRHH y MBA. 
     Pregunta: {pregunta}
-    Opciones: {opciones}
     Respuesta correcta: {correcta}
-    
-    INSTRUCCIÓN: Explica la base jurídica. ES OBLIGATORIO citar el ARTÍCULO y la LEY (ej. TREBEP, Ley 39/2015, etc.).
+    INSTRUCCIÓN: Explica brevemente la base jurídica. ES OBLIGATORIO CITAR EL ARTÍCULO Y LA LEY (TREBEP, Ley 39/2015, etc.).
     """
-    response = model.generate_content(prompt)
-    return response.text
+    try:
+        # Intento con el modelo principal
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception:
+        # Fallback manual: si falla el 1.5-flash, intentamos con el pro estándar
+        try:
+            model_alt = genai.GenerativeModel('gemini-pro')
+            response = model_alt.generate_content(prompt)
+            return response.text
+        except Exception as e2:
+            return f"Error al conectar con la base legal: {e2}. Verifica tu cuota en Google AI Studio."
 
-def registrar_progreso(tema, pregunta, resultado):
-    """Interoperabilidad con Google Sheets (Art. 156 Ley 40/2015)."""
+def log_gsheets(tema, pregunta, resultado):
+    """Registro de interoperabilidad (Art. 156 Ley 40/2015)."""
     nueva_fila = pd.DataFrame([{
         "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
         "perfil": "RRHH_MBA_PL2",
         "tema": tema,
-        "pregunta": pregunta[:80],
+        "pregunta": pregunta[:100],
         "resultado": resultado
     }])
     try:
         df_actual = conn.read()
         df_final = pd.concat([df_actual, nueva_fila], ignore_index=True)
         conn.update(data=df_final)
-        return True
-    except: return False
+    except: pass
 
-# --- PANTALLA: ACCESO SEGURO ---
+# --- INTERFAZ ---
 if not st.session_state.logged_in:
-    st.title("🔐 Acceso OpoTrainer Pro")
+    st.title("🛡️ Acceso Seguro OpoTrainer")
     u = st.text_input("Usuario")
     p = st.text_input("Contraseña", type="password")
     if st.button("Acceder"):
@@ -73,34 +80,36 @@ if not st.session_state.logged_in:
             st.rerun()
     st.stop()
 
-# --- PANTALLA: DASHBOARD (MÉTODO OPOSITATEST) ---
+# --- DASHBOARD (ESTILO MBA) ---
 if st.session_state.quiz_step == 'menu':
-    st.markdown(f'<div class="status-bar">👤 Experto: Relaciones Laborales & MBA | Idioma: Euskera PL2</div>', unsafe_allow_html=True)
-    st.title("📚 Módulos de Entrenamiento GACE")
+    st.markdown('<div class="profile-banner">🎓 <b>Perfil:</b> Relaciones Laborales & MBA | 🏆 <b>Idioma:</b> PL2 (B2 Euskera)</div>', unsafe_allow_html=True)
+    st.title("📊 Control de Módulos GACE")
     
     archivos = [f for f in os.listdir('.') if f.endswith(('.xlsx', '.csv'))]
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        tema = st.selectbox("Elige el tema a estudiar:", archivos)
-    with col2:
-        cantidad = st.slider("Nº de preguntas:", 5, 20, 10)
+    if archivos:
+        tema = st.selectbox("Selecciona el material de estudio:", archivos)
+        cant = st.select_slider("Número de preguntas para esta sesión:", options=[5, 10, 15, 20], value=10)
+        
+        if st.button("🚀 INICIAR ENTRENAMIENTO"):
+            df = pd.read_excel(tema, engine='openpyxl') if tema.endswith('.xlsx') else pd.read_csv(tema)
+            st.session_state.current_df = df.sample(n=min(cant, len(df))).reset_index(drop=True)
+            st.session_state.current_idx = 0
+            st.session_state.quiz_step = 'playing'
+            st.session_state.feedback = False
+            st.session_state.tema_n = tema
+            st.rerun()
 
-    if st.button("🚀 INICIAR TEST"):
-        df = pd.read_excel(tema, engine='openpyxl') if tema.endswith('.xlsx') else pd.read_csv(tema)
-        st.session_state.current_df = df.sample(n=min(cantidad, len(df))).reset_index(drop=True)
-        st.session_state.current_idx = 0
-        st.session_state.quiz_step = 'playing'
-        st.session_state.feedback = False
-        st.session_state.nombre_tema = tema
-        st.rerun()
-
-# --- PANTALLA: SIMULACIÓN DE EXAMEN ---
+# --- MODO TEST (FUNCIONALIDAD OPOSITATEST) ---
 elif st.session_state.quiz_step == 'playing':
     df = st.session_state.current_df
     idx = st.session_state.current_idx
     row = df.iloc[idx]
     
+    # Barra de progreso real
     st.progress((idx + 1) / len(df))
+    st.write(f"Pregunta {idx+1} de {len(df)}")
+
+    # Visualización de pregunta profesional
     st.markdown(f'<div class="question-card"><h3>{row["Pregunta"]}</h3></div>', unsafe_allow_html=True)
     
     opciones = [row['Respuesta 1'], row['Respuesta 2'], row['Respuesta 3'], row['Respuesta 4']]
@@ -109,36 +118,4 @@ elif st.session_state.quiz_step == 'playing':
     if not st.session_state.feedback:
         for i, opt in enumerate(opciones):
             if pd.notna(opt):
-                if st.button(f"{letras[i]}) {opt}", key=f"ans_{i}", use_container_width=True):
-                    st.session_state.user_choice = letras[i]
-                    st.session_state.feedback = True
-                    st.rerun()
-    else:
-        # Corrección y Trazabilidad
-        correcta = str(row['Respuesta']).strip().lower()
-        acierto = (st.session_state.user_choice == correcta)
-        
-        if acierto:
-            st.success(f"🎯 **ACIERTO.** La respuesta correcta es la {correcta.upper()}")
-            res_val = "Acierto"
-        else:
-            st.error(f"❌ **FALLO.** Marcaste {st.session_state.user_choice.upper()} | Correcta: {correcta.upper()}")
-            res_val = "Fallo"
-
-        registrar_progreso(st.session_state.nombre_tema, row['Pregunta'], res_val)
-
-        # Botón Gemini (Base Jurídica)
-        st.divider()
-        if st.button("✨ CONSULTAR BASE JURÍDICA (GEMINI AI)", type="primary"):
-            with st.spinner("Analizando legislación..."):
-                st.info(obtener_base_juridica(row['Pregunta'], opciones, correcta))
-
-        if st.button("Siguiente Pregunta ➡️"):
-            if idx + 1 < len(df):
-                st.session_state.current_idx += 1
-                st.session_state.feedback = False
-                st.rerun()
-            else:
-                st.session_state.quiz_step = 'menu'
-                st.balloons()
-                st.rerun()
+                if st.button(f
